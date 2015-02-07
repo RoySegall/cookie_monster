@@ -1,5 +1,14 @@
 name = Cookie monster
 core = 7.x
-
-
+package = Other
 dependencies[] = entity
+dependencies[] = features
+dependencies[] = node
+dependencies[] = number
+dependencies[] = text
+features[features_api][] = api:2
+features[field_base][] = body
+features[field_base][] = field_amount
+features[field_instance][] = node-cookies-body
+features[field_instance][] = node-cookies-field_amount
+features[node][] = cookies

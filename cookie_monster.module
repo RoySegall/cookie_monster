@@ -1,9 +1,10 @@
 <?php
-
 /**
  * @file
- * cookie_monster.module
+ * Code for the Cookie monster feature.
  */
+
+include_once 'cookie_monster.features.inc';
 
 /**
  *  Implements hook_menu().
