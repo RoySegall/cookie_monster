@@ -1,0 +1,5 @@
+name = Cookie monster
+core = 7.x
+
+
+dependencies[] = entity

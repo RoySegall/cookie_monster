@@ -1,0 +1,247 @@
+<?php
+
+/**
+ * @file
+ * cookie_monster.module
+ */
+
+/**
+ *  Implements hook_menu().
+ */
+function cookie_monster_menu() {
+  $items = array();
+
+  $items['cookies'] = array(
+    'title' => 'Cookie monster cookies',
+    'page callback' => 'cookie_monster_cookies',
+    'access arguments' => array('view all cookies'),
+  );
+
+  $items['cookies/add'] = array(
+    'title' => 'Add cookies',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('cookie_monster_add_cookies'),
+    'access arguments' => array('add cookies'),
+    'type' => MENU_LOCAL_ACTION,
+  );
+
+  $items['cookies/get_jars'] = array(
+    'page callback' => 'cookie_monster_get_jars_autocomplete',
+    'access callback' => TRUE,
+  );
+
+  return $items;
+}
+
+/**
+ *  Implements hook_permission().
+ */
+function cookie_monster_permission() {
+  return array(
+    'view all cookies' => array(
+      'title' => t('View all cookies'),
+      'description' => t('Determine who can see all the cookies of cookie monster'),
+    ),
+    'add cookies' => array(
+      'title' => t('Add cookies'),
+      'description' => t('Grant to the user the option to add cookies to the jar'),
+    ),
+  );
+}
+
+/**
+ * Get all the cookies.
+ *
+ * @param bool $return_query
+ *   Determine if the function should return the query before executing.
+ *
+ * @return array | EntityFieldQuery
+ *   The query object or the executed value of the query.
+ */
+function cookies_monster_get_cookies($return_query = FALSE) {
+  $query = new EntityFieldQuery();
+  $query
+    ->entityCondition('entity_type', 'node')
+    ->propertyCondition('type', 'cookies');
+
+  return $return_query ? $query : $query->execute();
+}
+
+/**
+ * Get all the cookies.
+ */
+function cookie_monster_get_jars() {
+  $results = cookies_monster_get_cookies();
+
+  if (empty($results['node'])) {
+    return array();
+  }
+
+  $nodes = array_keys($results['node']);
+
+  $return = array();
+
+  foreach ($nodes as $node) {
+    $wrapper = entity_metadata_wrapper('node', $node);
+    $return[] = strip_tags($wrapper->body->value->value());
+  }
+
+  return $return;
+}
+
+/**
+ * Return autocomplete of jars.
+ */
+function cookie_monster_get_jars_autocomplete($string = '') {
+
+  $query = cookies_monster_get_cookies(TRUE);
+
+  $results = $query
+    ->fieldCondition('body', 'value', $string, 'CONTAINS')
+    ->execute();
+
+  if (empty($results['node'])) {
+    $return = array();
+  }
+  else {
+    $nodes = node_load_multiple(array_keys($results['node']));
+    foreach ($nodes as $node) {
+      $wrapper = entity_metadata_wrapper('node', $node);
+      $value = strip_tags($wrapper->body->value->value());
+      $return[$value] = $value;
+    }
+  }
+
+  drupal_json_output($return);
+}
+
+/**
+ * Page callback; Show all cookie monster cookies.
+ */
+function cookie_monster_cookies() {
+  $content = '';
+  $content .= '<h2>This is cookie monster cookies:</h1>';
+
+  $headers = array(t('Title'), t('Description'), t('Amount'));
+
+  $results = cookies_monster_get_cookies();
+
+  if (!empty($results['node'])) {
+    $nodes = node_load_multiple(array_keys($results['node']));
+
+    foreach ($nodes as $node) {
+      $wrapper = entity_metadata_wrapper('node', $node);
+
+      $rows[] = array(
+        $wrapper->label(),
+        $wrapper->body->value->value(),
+        $wrapper->field_amount->value(),
+      );
+    }
+  }
+  else {
+    $rows[] = array(
+      array(
+        'data' => t('Where are all the cookies? <a href="@link">Add cookie!</a>', array('@link' => url('cookies/add'))),
+        'colspan' => '3',
+        'class' => 'text-center',
+      ),
+    );
+  }
+
+  $content .= theme('table', array('header' => $headers, 'rows' => $rows));
+
+  return $content;
+}
+
+/**
+ * Add cookies to the jar!
+ */
+function cookie_monster_add_cookies($form, $form_state) {
+  $form['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#required' => TRUE,
+  );
+
+  $form['amount'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Amount'),
+    '#description' => t('How many cookies of that one you have in the jar?'),
+    '#required' => TRUE,
+    '#element_validate' => array('element_validate_integer'),
+  );
+
+  $form['populate'] = array(
+    '#type' => 'radios',
+    '#title' => t('Cookie jar population way'),
+    '#description' => t('How you want to get the cookies type?'),
+    '#options' => array(
+      'auto' => t('Auto complete'),
+      'list' => t('Select list'),
+    ),
+    '#default_value' => 'auto',
+  );
+
+  $form['cookies_list'] = array(
+    '#type' => 'select',
+    '#title' => t('Cookies jars'),
+    '#options' => cookie_monster_get_jars(),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="populate"]' => array('value' => 'list'),
+      ),
+    ),
+  );
+
+  $form['cookies_free'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Free typing'),
+    '#states' => array(
+      'invisible' => array(
+        ':input[name="populate"]' => array('value' => 'list'),
+      ),
+    ),
+    '#autocomplete_path' => 'cookies/get_jars',
+  );
+
+  $form['actions'] = array(
+    '#type' => 'actions',
+    'submit' => array(
+      '#type' => 'submit',
+      '#value' => t('Submit'),
+    ),
+  );
+
+  return $form;
+}
+
+/**
+ * Validate handler.
+ */
+function cookie_monster_add_cookies_validate($form, $form_state) {
+  $key = $form_state['values']['populate'] == 'auto' ? 'cookies_free' : 'cookies_list';
+  if (empty($form_state['values'][$key])) {
+    form_set_error($key, t('You need to populate cookies!'));
+  }
+}
+
+/**
+ * Submit handler.
+ */
+function cookie_monster_add_cookies_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  $key = $form_state['values']['populate'] == 'auto' ? 'cookies_free' : 'cookies_list';
+
+  $node = entity_create('node', array(
+    'type' => 'cookies',
+  ));
+
+  $wrapper = entity_metadata_wrapper('node', $node);
+  $wrapper->title->set($values['title']);
+  $wrapper->field_amount->set($values['amount']);
+  $wrapper->body->set(array('value' => $values[$key], 'format' => 'full_html'));
+  $wrapper->save();
+
+  $form_state['redirect'] = 'cookies';
+}
