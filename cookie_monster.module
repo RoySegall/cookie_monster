@@ -140,7 +140,6 @@ function cookie_monster_cookies() {
 
   $results = cookies_monster_get_cookies();
 
-
   if (!empty($results['node'])) {
     $nodes = node_load_multiple(array_keys($results['node']));
 
@@ -155,7 +154,7 @@ function cookie_monster_cookies() {
           $wrapper->label(),
           $wrapper->body->value->value(),
           $wrapper->field_amount->value(),
-          theme('item_list', array('items' => $items, 'attributes' => array('class' => array('list-inline'))))
+          theme('item_list', array('items' => $items, 'attributes' => array('class' => array('list-inline')))),
         ),
         'class' => array('cookie-' . $node->nid),
       );
@@ -308,7 +307,7 @@ function cookie_monster_add_cookies_submit($form, &$form_state) {
       continue;
     }
 
-    drupal_set_message('Sending email to '. $email);
+    drupal_set_message('Sending email to ' . $email);
   }
 }
 
